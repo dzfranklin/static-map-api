@@ -1,0 +1,39 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: static-map
+  namespace: pt
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: static-map
+  template:
+    metadata:
+      labels:
+        app: static-map
+      annotations:
+        k8s.grafana.com/scrape: "true"
+        k8s.grafana.com/metrics.portName: "http"
+        k8s.grafana.com/job: "static-map-api"
+    spec:
+      containers:
+        - name: static-map
+          image: ghcr.io/dzfranklin/static-map-api:latest
+          env:
+            - name: PORT
+              value: "8000"
+            - name: APP_ENV
+              value: "production"
+            - name: MAPBOX_ACCESS_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: static-map-api
+                  key: mapbox-access-token
+          ports:
+            - name: http
+              containerPort: 8000
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http

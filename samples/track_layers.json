@@ -1,0 +1,13 @@
+[
+  {
+    "id": "track",
+    "type": "line",
+    "layout": {
+      "line-cap": "round"
+    },
+    "paint": {
+      "line-color": "#2563eb",
+      "line-width": 4
+    }
+  }
+]

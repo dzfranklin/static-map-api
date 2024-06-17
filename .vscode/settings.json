@@ -1,0 +1,8 @@
+{
+  "yaml.schemas": {
+    "Kubernetes": [
+      "pod.*.yaml"
+    ],
+    "https://json.schemastore.org/github-workflow.json": "file:///Users/daniel/projects/static-map-api/.github/workflows/deploy.yaml"
+  }
+}
