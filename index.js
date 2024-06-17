@@ -4,10 +4,13 @@ import { z } from "zod";
 import { chromium } from "playwright";
 import * as dotenv from "dotenv";
 import * as metrics from "prom-client";
+import { envelope as computeEnvelope } from "@turf/envelope";
+import * as crypto from 'crypto';
 
 dotenv.config({ path: ['.env.local', '.env'] })
 
 const appEnv = process.env.APP_ENV || "production";
+const debugMode = 'DEBUG_MODE' in process.env;
 
 const mapboxAccessToken = process.env.MAPBOX_ACCESS_TOKEN;
 if (!mapboxAccessToken) {
@@ -41,12 +44,10 @@ const screenshotHistogram = new metrics.Histogram({ name: "screenshot_duration",
 const renderHistogram = new metrics.Histogram({ name: "render_total_duration", help: "Total time to render in seconds", buckets: durationBuckets, registers: [registry] });
 
 const templateHTML = fs.readFileSync("template.html", "utf8");
-const depsJS = ["node_modules/mapbox-gl/dist/mapbox-gl.js", "vender/turf@7.0.0.min.js"];
-const depsCSS = ["node_modules/mapbox-gl/dist/mapbox-gl.css"];
-const depsJSBundle = depsJS.map((dep) => fs.readFileSync(dep, "utf8")).join("\n");
-const depsCSSBundle = depsCSS.map((dep) => fs.readFileSync(dep, "utf8")).join("\n");
 
-const browser = await chromium.launch();
+const browser = await chromium.launch({
+  headless: !debugMode,
+});
 
 const server = createServer((req, res) => {
   const url = new URL(req.url, `http://${hostname}:${port}`);
@@ -97,50 +98,74 @@ function handleError(res, err) {
 }
 
 async function handleRender(req, res) {
-  const start = performance.now();
-
-  const body = await getBody(req);
-  const payload = PayloadSchema.safeParse(JSON.parse(body));
-  if (!payload.success) {
-    res.statusCode = 400;
-    res.setHeader("Content-Type", "text/html");
-    res.end("Bad Request");
-    return;
+  let requestID = req.headers["x-request-id"];
+  if (!requestID) {
+    requestID = "assigned-by-static-map-" + crypto.randomBytes(16).toString("hex")
   }
+  const log = (msg) => console.log(`[${requestID}]`, msg);
 
-  const pageContent = renderTemplate(payload.data.source, payload.data.layers);
+  log("Rendering")
 
-  const startPage = performance.now();
-  const page = await browser.newPage({
-    viewport: { width: payload.data.width, height: payload.data.height },
-    deviceScaleFactor: 2,
-  });
-  pageCreationHistogram.observe((performance.now() - startPage) / 1000);
+  try {
+    const start = performance.now();
 
-  const startContent = performance.now();
-  await page.setContent(pageContent);
-  pageContentHistogram.observe((performance.now() - startContent) / 1000);
+    const body = await getBody(req);
+    const payload = PayloadSchema.safeParse(JSON.parse(body));
+    if (!payload.success) {
+      res.statusCode = 400;
+      res.setHeader("Content-Type", "text/html");
+      res.end("Bad Request");
+      return;
+    }
 
-  const startLoad = performance.now();
-  await page.waitForSelector("body.ready");
-  const endLoad = performance.now();
-  pageLoadHistogram.observe((endLoad - startLoad) / 1000);
+    const pageContent = renderTemplate(payload.data.source, payload.data.layers);
 
-  const startScreenshot = performance.now();
-  const screenshot = await page.screenshot({
-    type: "png",
-    scale: "device"
-  });
-  screenshotHistogram.observe((performance.now() - startScreenshot) / 1000);
+    const startPage = performance.now();
+    const page = await browser.newPage({
+      viewport: { width: payload.data.width, height: payload.data.height },
+      deviceScaleFactor: 2,
+    });
+    pageCreationHistogram.observe((performance.now() - startPage) / 1000);
 
-  renderHistogram.observe((performance.now() - start) / 1000);
-  renderCounter.inc();
+    page.on("console", (msg) => {
+      if (msg.type() === "error") {
+        log('Page console.error: ' + msg.text());
+      }
+    });
+    page.on("pageerror", (err) => {
+      log('Page error: ' + err);
+    });
 
-  res.statusCode = 200;
-  res.setHeader("Content-Type", "image/png");
-  res.end(screenshot);
+    const startContent = performance.now();
+    await page.setContent(pageContent);
+    pageContentHistogram.observe((performance.now() - startContent) / 1000);
 
-  await page.close();
+    const startLoad = performance.now();
+    await page.waitForSelector("body.ready");
+    const endLoad = performance.now();
+    pageLoadHistogram.observe((endLoad - startLoad) / 1000);
+
+    const startScreenshot = performance.now();
+    const screenshot = await page.screenshot({
+      type: "png",
+      scale: "device"
+    });
+    screenshotHistogram.observe((performance.now() - startScreenshot) / 1000);
+
+    renderHistogram.observe((performance.now() - start) / 1000);
+    renderCounter.inc();
+
+    res.statusCode = 200;
+    res.setHeader("Content-Type", "image/png");
+    res.end(screenshot);
+
+    await page.close();
+  } catch (err) {
+    log("Error: " + err);
+    res.statusCode = 500;
+    res.setHeader("Content-Type", "text/html");
+    res.end("Internal Server Error");
+  }
 }
 
 function handleHealth(_req, res) {
@@ -165,7 +190,7 @@ async function handleDevSample(req, res) {
     res.end("Bad Request: width and height must be numbers");
     return;
   }
-  const smoke = !!url.searchParams.get("smoke");
+  const smoke = url.searchParams.has("smoke");
 
   const endpoint = smoke ? 'http://static-map/render' : `http://${hostname}:${port}/render`;
 
@@ -223,16 +248,13 @@ function renderTemplate(source, layers) {
     console.log("Loaded template from file (development mode)");
   }
 
+  const bounds = computeEnvelope(source).bbox;
+
   const injection = `
-<style>
-  ${depsCSSBundle}
-</style>
-<script>
-  ${depsJSBundle}
-</script>
 <script>
   const SOURCE = JSON.parse(${JSON.stringify(JSON.stringify(source))});
   const LAYERS = JSON.parse(${JSON.stringify(JSON.stringify(layers))});
+  const BOUNDS = JSON.parse(${JSON.stringify(JSON.stringify(bounds))});
   const MAPBOX_ACCESS_TOKEN = "${mapboxAccessToken}";
 </script>`;
 
