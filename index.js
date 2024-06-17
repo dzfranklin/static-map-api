@@ -109,6 +109,8 @@ async function handleRender(req, res) {
   try {
     const start = performance.now();
 
+    const profileBase = "x-profile-base" in req.headers;
+
     const body = await getBody(req);
     const payload = PayloadSchema.safeParse(JSON.parse(body));
     if (!payload.success) {
@@ -137,15 +139,19 @@ async function handleRender(req, res) {
       log('Page error: ' + err);
     });
 
-    const startContent = performance.now();
-    await page.setContent(pageContent);
-    const startDur = (performance.now() - startContent) / 1000;
-    pageContentHistogram.observe(startDur);
+    if (profileBase) {
+      await page.setContent("<!DOCTYPE html><html><head></head><body><h1>Profile Base</h1></body></html>");
+    } else {
+      const startContent = performance.now();
+      await page.setContent(pageContent);
+      const startDur = (performance.now() - startContent) / 1000;
+      pageContentHistogram.observe(startDur);
 
-    const startLoad = performance.now();
-    await page.waitForSelector("body.ready");
-    const loadDur = (performance.now() - startLoad) / 1000;
-    pageLoadHistogram.observe(loadDur);
+      const startLoad = performance.now();
+      await page.waitForSelector("body.ready");
+      const loadDur = (performance.now() - startLoad) / 1000;
+      pageLoadHistogram.observe(loadDur);
+    }
 
     const startScreenshot = performance.now();
     const screenshot = await page.screenshot({
