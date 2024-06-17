@@ -139,17 +139,18 @@ async function handleRender(req, res) {
       log('Page error: ' + err);
     });
 
+    let startDur, loadDur;
     if (profileBase) {
       await page.setContent("<!DOCTYPE html><html><head></head><body><h1>Profile Base</h1></body></html>");
     } else {
       const startContent = performance.now();
       await page.setContent(pageContent);
-      const startDur = (performance.now() - startContent) / 1000;
+      startDur = (performance.now() - startContent) / 1000;
       pageContentHistogram.observe(startDur);
 
       const startLoad = performance.now();
       await page.waitForSelector("body.ready");
-      const loadDur = (performance.now() - startLoad) / 1000;
+      loadDur = (performance.now() - startLoad) / 1000;
       pageLoadHistogram.observe(loadDur);
     }
 
