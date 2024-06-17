@@ -35,13 +35,13 @@ const PayloadSchema = z.object({
 });
 
 const registry = new metrics.Registry();
-const durationBuckets = [0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0, 10.0];
+const durationBuckets = [0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0, 15.0];
 const renderCounter = new metrics.Counter({ name: "render_counter", help: "Render count", registers: [registry] });
-const pageCreationHistogram = new metrics.Histogram({ name: "page_creation_duration", help: "Time to create page in seconds", buckets: durationBuckets, registers: [registry] });
-const pageContentHistogram = new metrics.Histogram({ name: "page_content_duration", help: "Time to set page content in seconds", buckets: durationBuckets, registers: [registry] });
-const pageLoadHistogram = new metrics.Histogram({ name: "page_load_duration", help: "Time to load page in seconds", buckets: durationBuckets, registers: [registry] });
-const screenshotHistogram = new metrics.Histogram({ name: "screenshot_duration", help: "Time to take screenshot in seconds", buckets: durationBuckets, registers: [registry] });
-const renderHistogram = new metrics.Histogram({ name: "render_total_duration", help: "Total time to render in seconds", buckets: durationBuckets, registers: [registry] });
+const pageCreationHistogram = new metrics.Histogram({ name: "page_creation_duration_v2", help: "Time to create page in seconds", buckets: durationBuckets, registers: [registry] });
+const pageContentHistogram = new metrics.Histogram({ name: "page_content_duration_v2", help: "Time to set page content in seconds", buckets: durationBuckets, registers: [registry] });
+const pageLoadHistogram = new metrics.Histogram({ name: "page_load_duration_v2", help: "Time to load page in seconds", buckets: durationBuckets, registers: [registry] });
+const screenshotHistogram = new metrics.Histogram({ name: "screenshot_duration_v2", help: "Time to take screenshot in seconds", buckets: durationBuckets, registers: [registry] });
+const renderHistogram = new metrics.Histogram({ name: "render_total_duration_v2", help: "Total time to render in seconds", buckets: durationBuckets, registers: [registry] });
 
 const templateHTML = fs.readFileSync("template.html", "utf8");
 
