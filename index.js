@@ -131,22 +131,20 @@ async function handleRender(req, res) {
     pageCreationHistogram.observe(pageDur);
 
     page.on("console", (msg) => {
-      if (msg.type() === "error") {
-        log('Page console.error: ' + msg.text());
-      }
+      log(`Page console.${msg.type()}: ${msg.text()}`);
     });
     page.on("pageerror", (err) => {
       log('Page error: ' + err);
     });
 
-    let startDur, loadDur;
+    let setContentDur, loadDur;
     if (profileBase) {
       await page.setContent("<!DOCTYPE html><html><head></head><body><h1>Profile Base</h1></body></html>");
     } else {
       const startContent = performance.now();
       await page.setContent(pageContent);
-      startDur = (performance.now() - startContent) / 1000;
-      pageContentHistogram.observe(startDur);
+      setContentDur = (performance.now() - startContent) / 1000;
+      pageContentHistogram.observe(setContentDur);
 
       const startLoad = performance.now();
       await page.waitForSelector("body.ready");
@@ -172,7 +170,7 @@ async function handleRender(req, res) {
 
     await page.close();
 
-    log("Rendered. Times: " + JSON.stringify({ pageDur, startDur, loadDur, screenshotDur, totalDur }));
+    log("Rendered. Times: " + JSON.stringify({ pageDur, startDur: setContentDur, loadDur, screenshotDur, totalDur }));
   } catch (err) {
     log("Error: " + err);
     res.statusCode = 500;

@@ -2,6 +2,9 @@
 <html style="padding: 0; margin: 0">
 
 <head>
+  <script>
+    const renderStart = performance.now();
+  </script>
   <meta charset="utf-8" />
   <script src='https://api.mapbox.com/mapbox-gl-js/v3.4.0/mapbox-gl.js'></script>
   <link href='https://api.mapbox.com/mapbox-gl-js/v3.4.0/mapbox-gl.css' rel='stylesheet' />
@@ -17,15 +20,25 @@
       container: 'map',
       style: 'mapbox://styles/dzfranklin/clxg325c5006e01qmfsghevb9',
     });
+    const beginTime = performance.now();
 
     map.fitBounds(BOUNDS, { padding: 50, duration: 0 });
 
     map.on("style.load", () => {
+      const styleLoadTime = performance.now();
+
       map.addSource("SOURCE", { type: "geojson", generateId: true, data: SOURCE });
       LAYERS.forEach(layer => map.addLayer({ source: "SOURCE", ...layer }));
 
       const checkReady = () => {
-        if (map.loaded() && map.areTilesLoaded()) {
+        if (map.areTilesLoaded()) {
+          const readyTime = performance.now();
+          console.log("Timings", {
+            ready: (readyTime - renderStart) / 1000,
+            styleLoad: (styleLoadTime - beginTime) / 1000,
+            begin: (beginTime - renderStart) / 1000,
+          });
+
           // Links won't work in a static image.
           document.querySelector(".mapbox-improve-map")?.remove();
 
