@@ -125,7 +125,8 @@ async function handleRender(req, res) {
       viewport: { width: payload.data.width, height: payload.data.height },
       deviceScaleFactor: 2,
     });
-    pageCreationHistogram.observe((performance.now() - startPage) / 1000);
+    const pageDur = (performance.now() - startPage) / 1000;
+    pageCreationHistogram.observe(pageDur);
 
     page.on("console", (msg) => {
       if (msg.type() === "error") {
@@ -138,21 +139,24 @@ async function handleRender(req, res) {
 
     const startContent = performance.now();
     await page.setContent(pageContent);
-    pageContentHistogram.observe((performance.now() - startContent) / 1000);
+    const startDur = (performance.now() - startContent) / 1000;
+    pageContentHistogram.observe(startDur);
 
     const startLoad = performance.now();
     await page.waitForSelector("body.ready");
-    const endLoad = performance.now();
-    pageLoadHistogram.observe((endLoad - startLoad) / 1000);
+    const loadDur = (performance.now() - startLoad) / 1000;
+    pageLoadHistogram.observe(loadDur);
 
     const startScreenshot = performance.now();
     const screenshot = await page.screenshot({
       type: "png",
       scale: "device"
     });
-    screenshotHistogram.observe((performance.now() - startScreenshot) / 1000);
+    const screenshotDur = (performance.now() - startScreenshot) / 1000;
+    screenshotHistogram.observe(screenshotDur);
 
-    renderHistogram.observe((performance.now() - start) / 1000);
+    const totalDur = (performance.now() - start) / 1000;
+    renderHistogram.observe(totalDur);
     renderCounter.inc();
 
     res.statusCode = 200;
@@ -160,6 +164,8 @@ async function handleRender(req, res) {
     res.end(screenshot);
 
     await page.close();
+
+    log("Rendered. Times: " + JSON.stringify({ pageDur, startDur, loadDur, screenshotDur, totalDur }));
   } catch (err) {
     log("Error: " + err);
     res.statusCode = 500;
