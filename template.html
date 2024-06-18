@@ -6,47 +6,89 @@
     const renderStart = performance.now();
   </script>
   <meta charset="utf-8" />
-  <script src='https://api.mapbox.com/mapbox-gl-js/v3.4.0/mapbox-gl.js'></script>
-  <link href='https://api.mapbox.com/mapbox-gl-js/v3.4.0/mapbox-gl.css' rel='stylesheet' />
+
+  <style>
+    /* This needs to be replaced with superimposed text and links by the user */
+    .mapboxgl-ctrl-attrib {
+      display: none;
+    }
+  </style>
 </head>
 
 <body style="padding: 0; margin: 0">
   <div id="map" style="width: 100svw; height: 100svh"></div>
 
   <script>
-    mapboxgl.accessToken = MAPBOX_ACCESS_TOKEN;
+    window.renderStaticMap = function renderStaticMap(args) {
+      return new Promise((resolve, reject) => {
+        if (typeof args.mapboxAccessToken !== "string") {
+          throw new Error("malformed/missing mapboxAccessToken");
+        }
+        if (!(Array.isArray(args.bbox) && args.bbox.length === 4)) {
+          throw new Error("malformed/missing bbox");
+        }
+        if (typeof args.padding !== "number") {
+          throw new Error("malformed/missing padding");
+        }
+        if (args.source !== undefined && typeof args.source !== "object") {
+          throw new Error("malformed/missing source");
+        }
+        if (args.layers !== undefined && !Array.isArray(args.layers)) {
+          throw new Error("malformed/missing layers");
+        }
 
-    const map = new mapboxgl.Map({
-      container: 'map',
-      style: 'mapbox://styles/dzfranklin/clxg325c5006e01qmfsghevb9',
-    });
-    const beginTime = performance.now();
+        mapboxgl.accessToken = args.mapboxAccessToken;
 
-    map.fitBounds(BOUNDS, { padding: 50, duration: 0 });
+        // TODO: Try moving to top level
+        const map = new mapboxgl.Map({
+          container: 'map',
+          style: 'mapbox://styles/dzfranklin/clxg325c5006e01qmfsghevb9',
+        });
+        const beginTime = performance.now();
 
-    map.on("style.load", () => {
-      const styleLoadTime = performance.now();
+        map.fitBounds(args.bbox, { padding: args.padding, duration: 0 });
 
-      map.addSource("SOURCE", { type: "geojson", generateId: true, data: SOURCE });
-      LAYERS.forEach(layer => map.addLayer({ source: "SOURCE", ...layer }));
-
-      const checkReady = () => {
-        if (map.areTilesLoaded()) {
+        const onReady = () => {
           const readyTime = performance.now();
           console.log("Timings", {
             ready: (readyTime - renderStart) / 1000,
-            styleLoad: (styleLoadTime - beginTime) / 1000,
             begin: (beginTime - renderStart) / 1000,
           });
 
-          // Links won't work in a static image.
-          document.querySelector(".mapbox-improve-map")?.remove();
-
           document.body.classList.add("ready");
+
+          resolve();
         }
-      }
-      ["data", "style", "tiles"].forEach(event => map.on("load", checkReady));
-    })
+
+        map.once("style.load", () => {
+          if (args.source !== undefined && args.layers !== undefined) {
+            map.addSource("SOURCE", {
+              type: "geojson",
+              generateId: true,
+              data: args.source,
+            });
+
+            args.layers.forEach(layer => map.addLayer({
+              source: "SOURCE",
+              ...layer
+            }));
+          }
+
+          let loadedRenders = 0;
+          let isReady = false;
+          map.on("render", () => {
+            if (map.areTilesLoaded()) {
+              loadedRenders++;
+            }
+
+            if (!isReady && loadedRenders > 2) {
+              isReady = true;
+              setTimeout(onReady, 100);
+            }
+          });
+        });
+      });
+    }
   </script>
 </body>
 

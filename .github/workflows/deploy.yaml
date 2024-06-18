@@ -2,6 +2,10 @@ name: Deploy
 on:
   push:
     branches: [main]
+
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: true
 jobs:
   build:
     name: Build
@@ -23,7 +27,7 @@ jobs:
       - uses: docker/build-push-action@v3
         name: Build and push the docker image
         with:
-          platforms: linux/arm64
+          platforms: linux/amd64
           context: .
           push: true
           tags: |
@@ -46,7 +50,7 @@ jobs:
       - uses: azure/k8s-set-context@v1
         with:
           method: service-account
-          k8s-url: "https://stork:6443"
+          k8s-url: "https://geder:6443"
           k8s-secret: ${{ secrets.K8S_SECRET }}
         id: setcontext
 

@@ -3,6 +3,8 @@ kind: Service
 metadata:
   name: static-map
   namespace: pt
+  annotations:
+    tailscale.com/expose: "true"
 spec:
   type: ClusterIP
   ports:

@@ -1,4 +1,24 @@
 # static-map-api
 
-I think the issue is that rendering mapbox-gl without a GPU is simply too slow.
-Rendering a simple track takes around six seconds.
+Rendering on my home desktop computer (no GPU but good CPU) takes ~1-1.3
+seconds. That seems workable assuming transfer isn't too slow.
+
+## Profiling runs
+
+### geder
+
+```
+[16:44:34.294] INFO: Profiling 50 times
+[16:45:32.381] INFO: Summary: {"min":1.049,"max":1.28,"median":1.149,"stdDev":0.04504385618030317}
+[16:45:32.381] INFO: Times: [1.049,1.06,1.06,1.086,1.095,1.1,1.104,1.111,1.113,1.117,1.119,1.119,1.125,1.125,1.132,1.133,1.136,1.137,1.138,1.143,1.144,1.145,1.145,1.146,1.147,1.149,1.149,1.152,1.153,1.153,1.154,1.154,1.156,1.156,1.157,1.158,1.163,1.164,1.168,1.173,1.185,1.19,1.191,1.195,1.196,1.202,1.206,1.217,1.275,1.28]
+```
+
+### stork
+
+This run only rendered the whole map around half the time. Maybe it's an issue with the webgl renderer lagging behind?
+
+```
+[16:48:42.577] INFO: Profiling 50 times
+[16:51:55.837] INFO: Summary: {"min":1.182,"max":8.092,"median":2.295,"stdDev":2.69647429940412}
+[16:51:55.837] INFO: Times: [1.182,1.192,1.198,1.203,1.209,1.212,1.216,1.233,1.235,1.241,1.251,1.258,1.264,1.267,1.27,1.27,1.283,1.314,1.32,1.331,1.344,1.456,1.479,1.492,1.509,2.295,2.337,6.262,6.417,6.437,6.449,6.496,6.497,6.532,6.569,6.577,6.586,6.593,6.603,6.63,6.641,6.669,6.67,6.755,6.811,6.826,6.827,6.868,6.94,8.092]
+```
