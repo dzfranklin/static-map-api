@@ -49,6 +49,10 @@ const browser = await chromium.launch({
   headless: !debugMode,
 });
 
+// prewarm
+const page = await browser.newPage();
+await page.close();
+
 const server = createServer((req, res) => {
   const url = new URL(req.url, `http://${hostname}:${port}`);
   const path = url.pathname;
