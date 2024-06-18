@@ -75,6 +75,44 @@ const server = createServer((req, res) => {
         .catch((err) => handleError(res, err));
       break;
     }
+    case "/screenshots": {
+      try {
+        const id = url.searchParams.get("id");
+        if (!id) {
+          res.statusCode = 400;
+          res.setHeader("Content-Type", "text/html");
+          res.end("Bad Request: id is required");
+          return;
+        }
+        const files = fs.readdirSync(`/tmp/screenshots/${id}`).sort((a, b) => {
+          const aNum = parseInt(a.split(".")[0]);
+          const bNum = parseInt(b.split(".")[0]);
+          return aNum - bNum;
+        }).map(file => fs.readFileSync(`/tmp/screenshots/${id}/${file}`));
+        res.statusCode = 200;
+        res.setHeader("Content-Type", "text/html");
+        res.end(`
+        <!DOCTYPE html>
+        <html>
+          <head>
+            <meta charset="utf-8" />
+            <title>Screenshots</title>
+          </head>
+          <body>
+            <h1>Screenshots for ${id}</h1>
+            <ul>
+              ${files.map(file => `<li><img src="data:image/png;base64,${file.toString("base64")}" /></li>`).join("")}
+            </ul>
+          </body>
+        </html>
+      `);
+      } catch (err) {
+        console.error(err);
+        res.statusCode = 500;
+        res.setHeader("Content-Type", "text/html");
+        res.end("Internal Server Error");
+      }
+    }
     default:
       res.statusCode = 404;
       res.setHeader("Content-Type", "text/html");
@@ -113,7 +151,6 @@ async function handleRender(req, res) {
   try {
     const start = performance.now();
 
-    const profileBase = "x-profile-base" in req.headers;
 
     const body = await getBody(req);
     const payload = PayloadSchema.safeParse(JSON.parse(body));
@@ -142,7 +179,7 @@ async function handleRender(req, res) {
     });
 
     let setContentDur, loadDur;
-    if (profileBase) {
+    if ("x-profile-base" in req.headers) {
       await page.setContent("<!DOCTYPE html><html><head></head><body><h1>Profile Base</h1></body></html>");
     } else {
       const startContent = performance.now();
@@ -154,6 +191,35 @@ async function handleRender(req, res) {
       await page.waitForSelector("body.ready");
       loadDur = (performance.now() - startLoad) / 1000;
       pageLoadHistogram.observe(loadDur);
+    }
+
+    // TODO: Remove me
+    if ('x-screenshot-interval' in req.headers) {
+      const intervalMs = parseInt(req.headers['x-screenshot-interval']);
+      if (isNaN(intervalMs)) {
+        res.statusCode = 400;
+        res.setHeader("Content-Type", "text/html");
+        res.end("Bad Request: x-screenshot-interval must be a number");
+        return;
+      }
+      fs.mkdirSync("/tmp/screenshots/" + requestID, { recursive: true });
+      let i = 0;
+      const interval = setInterval(async () => {
+        if (page.isClosed()) {
+          clearInterval(interval);
+          return;
+        }
+        try {
+          const screenshot = await page.screenshot({
+            type: "png",
+            scale: "device"
+          });
+          fs.writeFile(`/tmp/screenshots/${requestID}/${i}.png`, screenshot, () => { });
+        } catch (err) {
+          log("Error taking screenshot: " + err);
+        }
+        i++;
+      }, intervalMs);
     }
 
     const startScreenshot = performance.now();
