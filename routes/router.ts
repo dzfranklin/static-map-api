@@ -5,6 +5,7 @@ import Renderer from "../renderer";
 import handleHealth from "./health";
 import handleRender from "./render";
 import { handleDevSample, handleDevSamplePNG } from "./dev/sample";
+import handleMetrics from "./metrics";
 
 export default function createRouter(config: {
   appEnv: string;
@@ -40,6 +41,9 @@ export default function createRouter(config: {
       switch (url.pathname) {
         case "/health":
           await handleHealth(url, req, res, config.logger, config.renderer);
+          return;
+        case "/metrics":
+          await handleMetrics(url, req, res);
           return;
         case "/render":
           await handleRender(
